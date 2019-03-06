@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 # Copyright (C) 2013  Remy van Elst
 
 # This program is free software: you can redistribute it and/or modify
@@ -14,11 +15,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys, xmlrpclib, argparse, string, logging
+import os, sys, xmlrpclib, argparse, string, logging
 
 #
 # Logging
 #
+reload(sys)
+sys.setdefaultencoding('utf-8')
 
 logger = logging.getLogger(__name__.rpartition('.')[0])
 logger.setLevel(logging.DEBUG)
@@ -286,6 +289,8 @@ def Parser():
     parser_usersgroups = subparsers.add_parser('listusers', help='List all users')
 
     parser_allpages = subparsers.add_parser('getallpages', help='Save all pages to local files.')
+    parser_allpages.add_argument("-s", "--spacekey", help="Space Key", default="*")
+    parser_allpages.add_argument("-d", "--sdir", help="store dir", default=".")
 
     parser_addutog = subparsers.add_parser('addusertogroup', help='Add user to a group')
     parser_addutog.add_argument("-G", "--groupname", help="Group name to perform action on.", required=True)
@@ -382,21 +387,26 @@ def Actions(token,xml_server,args,content):
                  space['key'], space['name'], space['url']))
 
         elif args.action == "getallpages":
-            all_spaces = ConfluenceSpace(token,xml_server).get_all()
+            if args.spacekey == '*':
+                all_spaces = ConfluenceSpace(token,xml_server).get_all()
+            else:
+                all_spaces = [ConfluenceSpace(token,xml_server).get_by_key(args.spacekey)]
             for space in all_spaces:
                 all_pages = ConfluenceSpace(token,xml_server).get_all_pages(space['key'])
                 print("Saving space: %s" % space['name'])
                 print("------------")
                 for page in all_pages:
                     page_content = ConfluencePage(token,xml_server,page['title'],space['key'],"").get_content()
-                    valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
-                    page_filename = space['key'] + "_" + page['title'] + ".html"
-                    page_filename = ''.join(c for c in page_filename if c in valid_chars)
-                    with open(page_filename, "w") as page_file:
+                    # valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
+                    # page_filename = ''.join(c for c in page_filename if c in valid_chars)
+                    # page_filename = args.sdir + '/' + page_filename
+                    if not os.path.exists(args.sdir + '/' + space['key']):
+                        os.makedirs(args.sdir + '/' + space['key'])
+                    with open((args.sdir + '/' + space['key'] + "/" + page['title'] + ".html").decode('utf-8'), "w") as page_file:
                         try:
                             page_file.write(page_content)
                             page_file.close()
-                            print("Saved page: %s" % page_filename)
+                            print("Saved page: %s" % (args.sdir + '/' + space['key'] + "/" + page['title'] + ".html").decode('utf-8'))
                         except IOError:
                             error_out('Could not write file: %s' % page['title'])
 
